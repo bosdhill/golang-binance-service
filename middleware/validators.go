@@ -3,12 +3,12 @@ package middleware
 import (
 	"net/http"
 
-	"github.com/bosdhill/golang-binance-service/core/models"
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
 )
 
-func validatorFunc(c *gin.Context, obj interface{}) {
+func Validator(c *gin.Context) {
+	obj := c.Request.Body
 	if err := c.ShouldBindJSON(&obj); err == nil {
 		validate := validator.New()
 		if err := validate.Struct(&obj); err != nil {
@@ -20,14 +20,4 @@ func validatorFunc(c *gin.Context, obj interface{}) {
 		}
 	}
 	c.Next()
-}
-
-func CreateOrderValidator(c *gin.Context) {
-	var order models.TakeProfitOrder
-	validatorFunc(c, order)
-}
-
-func GetBalanceValidator(c *gin.Context) {
-	var user models.User
-	validatorFunc(c, user)
 }

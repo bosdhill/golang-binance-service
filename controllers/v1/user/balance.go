@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"time"
 
 	"github.com/adshao/go-binance/v2/futures"
 	"github.com/bosdhill/golang-binance-service/core/models"
@@ -12,10 +13,14 @@ import (
 
 // GetBalanceHelper returns the User's USD-(s)M Futures Balance
 func GetBalanceHelper(user models.User) (*futures.Balance, error) {
+	// 1 minute timeout
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
+	defer cancel()
+
 	// USD-(s)M Futures
 	client := futures.NewClient(user.APIKey, user.APISecret)
 	defer client.HTTPClient.CloseIdleConnections()
-	balance, err := client.NewGetBalanceService().Do(context.Background())
+	balance, err := client.NewGetBalanceService().Do(ctx)
 	if err != nil {
 		return nil, err
 	}

@@ -9,6 +9,6 @@ import (
 func SetUserRoutes(rg *gin.RouterGroup) {
 	// TODO: Add validators
 	rg.GET("user/ping", user.Ping, gin.Logger())
-	rg.GET("user/balance", user.GetBalance, gin.Logger(), middleware.GetBalanceValidator)
-	rg.POST("user/trade", user.CreateOrder, gin.Logger(), middleware.CreateOrderValidator)
+	rg.GET("user/balance", user.GetBalance, gin.Logger(), middleware.Validator)
+	rg.POST("user/trade", user.CreateOrder, gin.Logger(), middleware.Validator)
 }

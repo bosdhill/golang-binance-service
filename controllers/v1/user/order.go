@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/adshao/go-binance/v2/futures"
 	"github.com/bosdhill/golang-binance-service/core/models"
@@ -52,7 +53,12 @@ func CreateOrder(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, err)
 	}
 
+	// 1 minute timeout
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
+	defer cancel()
+
 	client := futures.NewClient(order.User.APIKey, order.User.APISecret)
+	defer client.HTTPClient.CloseIdleConnections()
 	res, err := client.NewCreateOrderService().
 		Price(order.Price).
 		StopPrice(order.StopPrice).
@@ -60,7 +66,7 @@ func CreateOrder(c *gin.Context) {
 		Side(futures.SideTypeBuy).
 		Type(futures.OrderTypeTakeProfit).
 		Symbol(order.Symbol).
-		Do(context.Background())
+		Do(ctx)
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, err)

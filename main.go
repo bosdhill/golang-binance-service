@@ -24,7 +24,7 @@ func init() {
 		log.Fatal("Error loading .env file")
 	}
 
-	useTestnet, err := strconv.ParseBool(os.Getenv("USE_TEST_NET"))
+	useTestnet, err := strconv.ParseBool(os.Getenv("USE_TESTNET"))
 	if err != nil {
 		log.Fatal(err.Error())
 	}
