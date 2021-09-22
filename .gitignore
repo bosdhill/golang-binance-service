@@ -15,4 +15,4 @@
 # vendor/
 
 # Sensitive environment variables
-.env
+.env*
