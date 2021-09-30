@@ -2,25 +2,24 @@ package user
 
 import (
 	"context"
-	"errors"
 	"net/http"
 	"time"
 
+	"github.com/adshao/go-binance/v2/common"
 	"github.com/adshao/go-binance/v2/futures"
+	"github.com/bosdhill/golang-binance-service/core/errors"
 	"github.com/bosdhill/golang-binance-service/core/models"
 	"github.com/gin-gonic/gin"
+	log "github.com/sirupsen/logrus"
 )
 
-// GetBalanceHelper returns the User's USD-(s)M Futures Balance
-func GetBalanceHelper(user models.User) (*futures.Balance, error) {
-	// 1 minute timeout
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
-	defer cancel()
-
-	// USD-(s)M Futures
-	client := futures.NewClient(user.APIKey, user.APISecret)
-	defer client.HTTPClient.CloseIdleConnections()
-	balance, err := client.NewGetBalanceService().Do(ctx)
+// GetUSDTBalanceHelper returns the User's USD-(s)M Futures Balance
+func getBalance(
+	ctx context.Context,
+	c *futures.Client,
+	user *models.User,
+) (*futures.Balance, error) {
+	balance, err := c.NewGetBalanceService().Do(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -31,7 +30,7 @@ func GetBalanceHelper(user models.User) (*futures.Balance, error) {
 			return b, nil
 		}
 	}
-	return nil, errors.New("no USDT balance")
+	return nil, errors.NewNoUSDTBalance()
 }
 
 // GetBalance returns the users balance based on the User's APIKey and APISecret
@@ -41,13 +40,39 @@ func GetBalance(c *gin.Context) {
 	err := c.BindJSON(&user)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, err)
+		log.Error(err)
+		return
 	}
 
-	res, err := GetBalanceHelper(user)
+	// 1 minute timeout
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
+	defer cancel()
+
+	// USD-(s)M Futures
+	client := futures.NewClient(user.APIKey, user.APISecret)
+	defer client.HTTPClient.CloseIdleConnections()
+
+	res, err := getBalance(ctx, client, &user)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, err)
-	} else {
-		// c.JSON(http.StatusOK, gin.H{"balances": res})
-		c.JSON(http.StatusOK, res)
+		if common.IsAPIError(err) {
+			apiErr := errors.NewAPIError(err)
+			c.JSON(int(apiErr.Code), errors.NewAPIError(err))
+		} else {
+			c.JSON(http.StatusInternalServerError, err)
+		}
+		log.Error(err)
+		return
 	}
+
+	log.WithFields(log.Fields{
+		"AccountAlias":       res.AccountAlias,
+		"Asset":              res.Asset,
+		"Balance":            res.Balance,
+		"CrossWalletBalance": res.CrossWalletBalance,
+		"CrossUnPnl":         res.CrossUnPnl,
+		"AvailableBalance":   res.AvailableBalance,
+		"MaxWithdrawAmount":  res.MaxWithdrawAmount,
+	}).Info("Got Balance")
+
+	c.JSON(http.StatusOK, res)
 }

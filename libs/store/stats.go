@@ -10,8 +10,8 @@ import (
 )
 
 var (
-	s            *statsStore
-	newStatsOnce sync.Once
+	s         *statsStore
+	statsOnce sync.Once
 )
 
 type Stats struct {
@@ -46,7 +46,7 @@ type statsStore struct {
 
 // NewStats returns a reference to the in memory latest price store
 func NewStats() *statsStore {
-	newStatsOnce.Do(func() {
+	statsOnce.Do(func() {
 		s = &statsStore{}
 		s.init()
 	})

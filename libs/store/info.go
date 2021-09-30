@@ -9,8 +9,8 @@ import (
 )
 
 var (
-	e           *exchangeInfoStore
-	newInfoOnce sync.Once
+	e        *exchangeInfoStore
+	infoOnce sync.Once
 )
 
 type exchangeInfoStore struct {
@@ -22,7 +22,7 @@ type exchangeInfoStore struct {
 
 // NewInfo returns a reference to the in memory latest price store
 func NewInfo() *exchangeInfoStore {
-	newInfoOnce.Do(func() {
+	infoOnce.Do(func() {
 		e = &exchangeInfoStore{}
 		e.fetchExchangeInfo()
 	})

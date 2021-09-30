@@ -18,7 +18,7 @@ func init() {
 	test.IntializeControllerTests()
 }
 
-func TestGetBalance(t *testing.T) {
+func TestGetAccount(t *testing.T) {
 	var user models.User
 	user.APIKey = os.Getenv("FUTURES_API_KEY")
 	user.APISecret = os.Getenv("FUTURES_API_SECRET")
@@ -41,7 +41,7 @@ func TestGetBalance(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	GetBalance(c)
+	GetAccount(c)
 
 	assert.Equal(t, http.StatusOK, w.Code)
 

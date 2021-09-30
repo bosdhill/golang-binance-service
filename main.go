@@ -2,41 +2,98 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"strconv"
 
 	binance "github.com/adshao/go-binance/v2"
 	"github.com/adshao/go-binance/v2/delivery"
 	"github.com/adshao/go-binance/v2/futures"
+	"github.com/bosdhill/golang-binance-service/libs/store"
 	v1 "github.com/bosdhill/golang-binance-service/routers/v1"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
+	log "github.com/sirupsen/logrus"
 )
+
+type ServerCtx struct {
+	Port       string
+	UseTestnet bool
+	Debug      bool
+}
 
 var (
 	router = gin.Default()
 )
 
-func init() {
+func loadServerCtx() *ServerCtx {
+	s := &ServerCtx{"5000",
+		false,
+		false,
+	}
+
 	err := godotenv.Load()
 	if err != nil {
 		log.Fatal("Error loading .env file")
 	}
 
-	useTestnet, err := strconv.ParseBool(os.Getenv("USE_TESTNET"))
-	if err != nil {
-		log.Fatal(err.Error())
+	port := os.Getenv("PORT")
+	if port != "" {
+		s.Port = port
 	}
 
+	debugMode := os.Getenv("DEBUG")
+	s.Debug, err = strconv.ParseBool(debugMode)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	useTestnet, err := strconv.ParseBool(os.Getenv("USE_TESTNET"))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	s.UseTestnet = useTestnet
 	binance.UseTestnet = useTestnet
 	futures.UseTestnet = useTestnet
 	delivery.UseTestnet = useTestnet
+
+	log.WithFields(log.Fields{
+		"Port":        s.Port,
+		"UseTesetnet": s.UseTestnet,
+		"Debug":       s.Debug,
+	}).Info("Server configuration loaded")
+
+	return s
+}
+
+func init() {
 	version1 := router.Group("/v1")
 	v1.InitRoutes(version1)
+
+	// Report the caller method in the logs
+	log.SetReportCaller(true)
+
+	// Output to stdout instead of stderr
+	log.SetOutput(os.Stdout)
+
+	// Only log the Info severity or above
+	log.SetLevel(log.InfoLevel)
 }
 
 func main() {
-	port := os.Getenv("PORT")
-	router.Run(fmt.Sprintf(":%v", port))
+	gin.SetMode(gin.ReleaseMode)
+
+	s := loadServerCtx()
+	if s.Debug {
+		log.SetLevel(log.DebugLevel)
+		gin.SetMode(gin.DebugMode)
+	}
+
+	// Create in memory store to maintain price stats
+	store.NewStats().WithInterval("3s")
+
+	// Create in memory store for exchange info
+	store.NewInfo()
+
+	router.Run(fmt.Sprintf(":%v", s.Port))
 }
