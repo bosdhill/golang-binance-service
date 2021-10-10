@@ -3,30 +3,14 @@ package user
 import (
 	"context"
 	"net/http"
-	"time"
 
 	"github.com/adshao/go-binance/v2/common"
-	"github.com/adshao/go-binance/v2/futures"
 	"github.com/bosdhill/golang-binance-service/core/errors"
 	"github.com/bosdhill/golang-binance-service/core/models"
+	binance "github.com/bosdhill/golang-binance-service/libs/binancewrapper"
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
 )
-
-// getAccount returns the User's USD-(s)M Futures Account
-func getAccount(
-	ctx *context.Context,
-	c *futures.Client,
-	user models.User,
-) (*futures.Account, error) {
-	account, err := c.NewGetAccountService().Do(*ctx)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return account, nil
-}
 
 // GetAccount returns the users futures account based on the User's APIKey and APISecret
 func GetAccount(c *gin.Context) {
@@ -39,15 +23,11 @@ func GetAccount(c *gin.Context) {
 		return
 	}
 
-	// 1 minute timeout
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	client := binance.NewClient(&user)
 	defer cancel()
 
-	// USD-(s)M Futures
-	client := futures.NewClient(user.APIKey, user.APISecret)
-	defer client.HTTPClient.CloseIdleConnections()
-
-	res, err := getAccount(&ctx, client, user)
+	res, err := client.GetAccount(ctx)
 	if err != nil {
 		if common.IsAPIError(err) {
 			apiErr := errors.NewAPIError(err)

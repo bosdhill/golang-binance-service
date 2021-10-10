@@ -21,3 +21,15 @@ func Validator(c *gin.Context) {
 	}
 	c.Next()
 }
+
+func ValidateOrderRequest(c *gin.Context) {
+	// TODO
+}
+
+func ValidateBalanceRequest(c *gin.Context) {
+	// TODO
+}
+
+func ValidateAccountRequest(c *gin.Context) {
+	// TODO
+}

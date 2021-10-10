@@ -17,3 +17,7 @@ func NewAPIError(e error) *common.APIError {
 func NewNoUSDTBalance() error {
 	return err.New("no USDT balance")
 }
+
+func NewPositionSizeInvalid() error {
+	return err.New("position size invalid, either 0.0 or exceeded max size")
+}

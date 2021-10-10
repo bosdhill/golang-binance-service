@@ -5,12 +5,14 @@ import (
 	"sync"
 
 	"github.com/adshao/go-binance/v2/futures"
+	"github.com/bosdhill/golang-binance-service/libs/logwrapper"
 	log "github.com/sirupsen/logrus"
 )
 
 var (
-	e        *exchangeInfoStore
-	infoOnce sync.Once
+	e           *exchangeInfoStore
+	infoOnce    sync.Once
+	infoLogFile = "exchangeInfo.log"
 )
 
 type exchangeInfoStore struct {
@@ -18,24 +20,54 @@ type exchangeInfoStore struct {
 	m    sync.RWMutex
 	// updateInterval time.Duration
 	symbols []string
+	l       *logwrapper.StandardLogger
 }
 
-// NewInfo returns a reference to the in memory latest price store
+// NewInfo returns a reference to the in memory exchangeInfo store
 func NewInfo() *exchangeInfoStore {
 	infoOnce.Do(func() {
 		e = &exchangeInfoStore{}
-		e.fetchExchangeInfo()
+		e.init()
 	})
 	return e
+}
+
+func (e *exchangeInfoStore) init() {
+	e.l = logwrapper.New().WithLogFile(infoLogFile)
+	e.fetchExchangeInfo()
 }
 
 // GetBaseAssetPrecision returns the base asset precision for a futures symbol.
 // Used in the quantity calculation in the futures order.
 func (e *exchangeInfoStore) GetBaseAssetPrecision(symbol string) int {
-	e.m.RLock()
-	defer e.m.RUnlock()
+	// e.m.RLock()
+	// defer e.m.RUnlock()
 	s := e.info[symbol]
 	return s.BaseAssetPrecision
+}
+
+// GetQuantityPrecision returns the quantity precision for a futures symbol.
+func (e *exchangeInfoStore) GetQuantityPrecision(symbol string) int {
+	// e.m.RLock()
+	// defer e.m.RUnlock()
+	s := e.info[symbol]
+	return s.QuantityPrecision
+}
+
+// GetQuotePrecision returns the quote precision for a futures symbol.
+func (e *exchangeInfoStore) GetQuotePrecision(symbol string) int {
+	// e.m.RLock()
+	// defer e.m.RUnlock()
+	s := e.info[symbol]
+	return s.QuotePrecision
+}
+
+// GetPricePrecision returns the price precision for a futures symbol.
+func (e *exchangeInfoStore) GetPricePrecision(symbol string) int {
+	// e.m.RLock()
+	// defer e.m.RUnlock()
+	s := e.info[symbol]
+	return s.PricePrecision
 }
 
 func (e *exchangeInfoStore) fetchExchangeInfo() {

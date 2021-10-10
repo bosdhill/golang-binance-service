@@ -29,7 +29,7 @@ type Order struct {
 
 	// Used by LIMIT and MARKET
 	// Percentage of futures balance to trade. Used by LIMIT and MARKET orders.
-	Percentage string `json:"percentage"`
+	Percentage float64 `json:"percentage"`
 
 	// Used by LIMIT
 	// Price to buy underlying asset. Used by LIMIT orders.
@@ -47,7 +47,7 @@ type Order struct {
 	StopPrice string `json:"stopPrice"`
 }
 
-// Bot represents a binance futures order
+// Bot represents a bot order
 type Bot struct {
 	// User's api key and secret
 	User User

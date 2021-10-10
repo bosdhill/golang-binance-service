@@ -15,7 +15,7 @@ import (
 )
 
 func init() {
-	test.IntializeControllerTests()
+	test.InitializeBinanceTests()
 }
 
 func TestGetAccount(t *testing.T) {
