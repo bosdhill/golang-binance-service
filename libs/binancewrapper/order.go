@@ -1,3 +1,4 @@
+// Package binancewrapper wraps the binance api client
 package binancewrapper
 
 import (
@@ -11,19 +12,44 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// CloseAllPositions close all current long position if side is SELL, otherwise
-// closes all current short positions if side is BUY.
+// CloseAllPositions will create a STOP_MARKET order that will be triggered when
+// the stopPrice is met with closePosition=true. If triggered, it will close all
+// open long (BUY) positions if the side is SELL, otherwise it will close all
+// open short (SELL) positions if the side is BUY.
 func (b *binanceClient) CloseAllPositions(
 	ctx context.Context,
 	symbol string,
 	side futures.SideType,
+	stopPrice string,
 ) (*futures.CreateOrderResponse, error) {
-	res, err := b.c.NewCreateOrderService().
+	svc := b.c.NewCreateOrderService().
 		Type(futures.OrderTypeStopMarket).
 		Symbol(symbol).
 		Side(side).
-		ClosePosition(true).
-		Do(ctx)
+		ClosePosition(true)
+	var res *futures.CreateOrderResponse
+	res, err := svc.Do(ctx)
+	if err != nil {
+		retryRes, err := b.Retry(
+			ctx,
+			err,
+			func(ctx context.Context, opts ...futures.RequestOption) (interface{}, error) {
+				log.WithField("recvWindow", opts).Info("Retrying CloseAllPositions request")
+				return svc.Do(ctx, opts...)
+			},
+		)
+		if err != nil {
+			return nil, err
+		}
+		res = retryRes.(*futures.CreateOrderResponse)
+	}
+
+	log.WithFields(log.Fields{
+		"Symbol":    symbol,
+		"Side":      side,
+		"StopPrice": stopPrice,
+	}).Info("New Stop Market Order")
+
 	if err != nil {
 		return nil, err
 	}
@@ -31,17 +57,41 @@ func (b *binanceClient) CloseAllPositions(
 }
 
 // CancelMultipleOrders cancels multiple open orders for a specified symbol.
+// Note that once an order is filled, it becomes an open position and can not
+// be cancelled.
 func (b *binanceClient) CancelMultipleOrders(
 	ctx context.Context,
 	symbol string,
 	orderIDs []int64,
 	clientOrderIDs []string,
 ) ([]*futures.CancelOrderResponse, error) {
-	res, err := b.c.NewCancelMultipleOrdersService().
+	svc := b.c.NewCancelMultipleOrdersService().
 		OrderIDList(orderIDs).
 		OrigClientOrderIDList(clientOrderIDs).
-		Symbol(symbol).
-		Do(ctx)
+		Symbol(symbol)
+	var res []*futures.CancelOrderResponse
+	res, err := svc.Do(ctx)
+	if err != nil {
+		retryRes, err := b.Retry(
+			ctx,
+			err,
+			func(ctx context.Context, opts ...futures.RequestOption) (interface{}, error) {
+				log.WithField("recvWindow", opts).Info("Retrying CancelMultipleOrders request")
+				return svc.Do(ctx, opts...)
+			},
+		)
+		if err != nil {
+			return nil, err
+		}
+		res = retryRes.([]*futures.CancelOrderResponse)
+	}
+
+	log.WithFields(log.Fields{
+		"Symbol":         symbol,
+		"OrderIDs":       orderIDs,
+		"ClientOrderIDs": clientOrderIDs,
+	}).Info("New Cancel Multiple Orders")
+
 	if err != nil {
 		return nil, err
 	}
@@ -50,7 +100,22 @@ func (b *binanceClient) CancelMultipleOrders(
 
 // CancelAllOrders cancels all open futures orders for a specified symbol.
 func (b *binanceClient) CancelAllOrders(ctx context.Context, symbol string) error {
-	return b.c.NewCancelAllOpenOrdersService().Symbol(symbol).Do(ctx)
+	svc := b.c.NewCancelAllOpenOrdersService().Symbol(symbol)
+	err := svc.Do(ctx)
+	if err != nil {
+		_, err := b.Retry(
+			ctx,
+			err,
+			func(ctx context.Context, opts ...futures.RequestOption) (interface{}, error) {
+				log.WithField("recvWindow", opts).Info("Retrying CancelAllOrders request")
+				return nil, svc.Do(ctx, opts...)
+			},
+		)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // CreateOrder creates a futures order.
@@ -58,9 +123,9 @@ func (b *binanceClient) CreateOrder(
 	ctx context.Context,
 	order models.Order,
 ) (*futures.CreateOrderResponse, error) {
-	orderSvc := b.c.NewCreateOrderService()
+	svc := b.c.NewCreateOrderService()
 
-	orderSvc.Type(order.Type).
+	svc.Type(order.Type).
 		Symbol(order.Symbol).
 		Side(order.Side)
 
@@ -73,7 +138,7 @@ func (b *binanceClient) CreateOrder(
 			return nil, err
 		}
 
-		orderSvc.Quantity(quantity)
+		svc.Quantity(quantity)
 
 		log.WithFields(log.Fields{
 			"Symbol":     order.Symbol,
@@ -87,7 +152,7 @@ func (b *binanceClient) CreateOrder(
 			return nil, err
 		}
 
-		orderSvc.Quantity(quantity).
+		svc.Quantity(quantity).
 			Price(order.Price).
 			TimeInForce(order.TimeInForce)
 
@@ -99,7 +164,7 @@ func (b *binanceClient) CreateOrder(
 			"Percentage": order.Percentage,
 		}).Info("New Limit Order")
 	case futures.OrderTypeStopMarket:
-		orderSvc.StopPrice(order.StopPrice)
+		svc.StopPrice(order.StopPrice)
 
 		log.WithFields(log.Fields{
 			"Symbol":    order.Symbol,
@@ -108,8 +173,23 @@ func (b *binanceClient) CreateOrder(
 		}).Info("New Stop Market Order")
 	}
 
-	orderResp, err := orderSvc.Do(ctx)
-	return orderResp, err
+	var res *futures.CreateOrderResponse
+	res, err = svc.Do(ctx)
+	if err != nil {
+		retryRes, err := b.Retry(
+			ctx,
+			err,
+			func(ctx context.Context, opts ...futures.RequestOption) (interface{}, error) {
+				log.WithField("recvWindow", opts).Info("Retrying CreateOrder request")
+				return svc.Do(ctx, opts...)
+			},
+		)
+		if err != nil {
+			return nil, err
+		}
+		res = retryRes.(*futures.CreateOrderResponse)
+	}
+	return res, err
 }
 
 // calculateQuantity returns the quantity for a given size, symbol, and price.
@@ -187,7 +267,7 @@ func (b *binanceClient) calculatePositionSize(ctx context.Context,
 
 	// Since the default leverage for symbols is 20x, we might need to update
 	// the symbol leverage
-	_, err = b.checkSymbolLeverage(ctx, symbol, account.Positions)
+	_, err = b.changeSymbolLeverage(ctx, symbol, account.Positions)
 	if err != nil {
 		return 0.0, err
 	}

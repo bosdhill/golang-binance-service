@@ -1,3 +1,5 @@
+// Package store implements in memory stores for the binance exchange info and
+// price stats
 package store
 
 import (

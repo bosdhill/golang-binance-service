@@ -12,7 +12,19 @@ func init() {
 	test.IntializeStoreTests()
 }
 
-func TestStats(t *testing.T) {
+func TestNewStats(t *testing.T) {
+	stats := NewStats()
+	assert.NotEqual(t, nil, stats, "stats is not nil")
+}
+
+func TestGetSymbols(t *testing.T) {
+	stats := NewStats()
+
+	s := stats.GetSymbols()
+	assert.NotEqual(t, 0, len(s), "number of symbols is not zero")
+}
+
+func TestGetLastPrice(t *testing.T) {
 	symbols := []string{"ETHUSDT", "BTCUSDT"}
 	stats := NewStats()
 
@@ -22,6 +34,6 @@ func TestStats(t *testing.T) {
 		lastPrice = stats.GetLastPrice(symbol)
 		time.Sleep(30 * time.Second)
 		newLastPrice = stats.GetLastPrice(symbol)
-		assert.NotEqual(t, lastPrice, newLastPrice)
+		assert.NotEqual(t, lastPrice, newLastPrice, "last price is updated")
 	}
 }

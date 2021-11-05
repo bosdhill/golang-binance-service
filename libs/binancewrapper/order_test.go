@@ -30,7 +30,7 @@ func TestCalculatePositionSize(t *testing.T) {
 	client := NewClient(&user)
 	defer cancel()
 
-	b, err := client.GetBalance(ctx)
+	b, err := client.GetUSDTBalance(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -105,7 +105,7 @@ func TestCalculateLimitQuantity(t *testing.T) {
 	ctx := context.Background()
 	client := NewClient(user)
 
-	b, err := client.GetBalance(ctx)
+	b, err := client.GetUSDTBalance(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -248,21 +248,22 @@ func TestCreateMarketOrder(t *testing.T) {
 
 		got, err := json.MarshalIndent(&res, "", " ")
 		if err != nil {
-			t.Fatal(err)
+			t.Fatal(err, tc.name)
 		}
 		t.Logf(string(got))
 
-		// This is basically the stop loss order... need to set the stop price or
-		// have it at market
-		// res, err = client.CloseAllPositions(ctx, tc.order.Symbol, futures.SideTypeBuy)
-		// if err != nil {
-		// 	t.Fatal(err)
-		// }
+		// Close all long positions by creating a STOP_MARKET sell order at a
+		// very low stop price to guarantee that it will be triggered.
+		// Similar to https://github.com/sammchardy/python-binance/issues/536#issuecomment-643743964
+		res, err = client.CloseAllPositions(ctx, tc.order.Symbol, futures.SideTypeSell, "10.0")
+		if err != nil {
+			t.Fatal(err, tc.name)
+		}
 
-		// got, err = json.MarshalIndent(&res, "", " ")
-		// if err != nil {
-		// 	t.Fatal(err)
-		// }
-		// t.Logf(string(got))
+		got, err = json.MarshalIndent(&res, "", " ")
+		if err != nil {
+			t.Fatal(err, tc.name)
+		}
+		t.Logf(string(got))
 	}
 }

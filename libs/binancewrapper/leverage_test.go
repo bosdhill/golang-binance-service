@@ -63,7 +63,7 @@ func TestChangeSymbolLeverage(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		changed, err := client.checkSymbolLeverage(ctx, tc.symbol, account.Positions)
+		changed, err := client.changeSymbolLeverage(ctx, tc.symbol, account.Positions)
 		if err != nil {
 			t.Fatal(err)
 		}

@@ -11,8 +11,13 @@ func init() {
 	test.IntializeStoreTests()
 }
 
+func TestNewInfo(t *testing.T) {
+	info := NewInfo()
+	assert.NotEqual(t, nil, info, "info is not nil")
+}
+
 func TestInfo(t *testing.T) {
-	exchangeInfo := NewInfo()
+	info := NewInfo()
 
 	tests := []struct {
 		name          string
@@ -52,16 +57,16 @@ func TestInfo(t *testing.T) {
 
 	var actual int
 	for _, tc := range tests {
-		actual = exchangeInfo.GetPricePrecision(tc.symbol)
+		actual = info.GetPricePrecision(tc.symbol)
 		assert.Equal(t, tc.expectedPrice, actual, tc.name)
 
-		actual = exchangeInfo.GetQuantityPrecision(tc.symbol)
+		actual = info.GetQuantityPrecision(tc.symbol)
 		assert.Equal(t, tc.expectedQty, actual, tc.name)
 
-		actual = exchangeInfo.GetBaseAssetPrecision(tc.symbol)
+		actual = info.GetBaseAssetPrecision(tc.symbol)
 		assert.Equal(t, tc.expectedBase, actual, tc.name)
 
-		actual = exchangeInfo.GetQuotePrecision(tc.symbol)
+		actual = info.GetQuotePrecision(tc.symbol)
 		assert.Equal(t, tc.expectedQuote, actual, tc.name)
 	}
 }

@@ -51,9 +51,6 @@ Returns a response with the following format:
 }
 ```
 
-
-
-
 Creates a new futures order for the user in Hedge Mode, from the trading signal format:
 ```
 SYMBOLUSDTPERP 
@@ -88,3 +85,18 @@ SIZE: XXX
 If order is not filled, take profit might be triggered immediately.
 Fill or kill. 
 If order not filled, don't execute
+
+## Issue with Binance server time synchronization 
+
+Sometimes the system time can fall out of sync with the binance server time, for example:
+```
+--- FAIL: TestChangeSymbolLeverage (36.89s)
+    leverage_test.go:68: <APIError> code=-1021, msg=Timestamp for this request is outside of the recvWindow.
+``` 
+
+There is a fix implemented for this in the go-binance sdk: https://github.com/adshao/go-binance/issues/127
+
+This would require querying the binance server time once when creating a client and using as a time offset it in each request. 
+
+Since it will eventually get out of sync again, we will retry a failed request (one with error code -1021) with the updated 
+time offset after quering the binance server time. 

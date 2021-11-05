@@ -27,7 +27,7 @@ func GetBalance(c *gin.Context) {
 	client := binance.NewClient(&user)
 	defer cancel()
 
-	res, err := client.GetBalance(ctx)
+	res, err := client.GetUSDTBalance(ctx)
 	if err != nil {
 		if common.IsAPIError(err) {
 			apiErr := errors.NewAPIError(err)

@@ -1,3 +1,4 @@
+// Package binancewrapper wraps the binance api client
 package binancewrapper
 
 import (
@@ -19,37 +20,46 @@ func (b *binanceClient) changeLeverage(
 	symbol string,
 	leverage int,
 ) error {
-	res, err := b.c.NewChangeLeverageService().
+	svc := b.c.NewChangeLeverageService().
 		Leverage(leverage).
-		Symbol(symbol).
-		Do(ctx)
+		Symbol(symbol)
+	var res *futures.SymbolLeverage
+	res, err := svc.Do(ctx)
 	if err != nil {
-		return err
+		retryRes, err := b.Retry(
+			ctx,
+			err,
+			func(ctx context.Context, opts ...futures.RequestOption) (interface{}, error) {
+				log.WithField("recvWindow", opts).Info("Retrying ChangeLeverage request")
+				return svc.Do(ctx, opts...)
+			},
+		)
+		if err != nil {
+			return err
+		}
+		res = retryRes.(*futures.SymbolLeverage)
 	}
 
 	log.WithFields(log.Fields{
 		"Symbol":       res.Symbol,
 		"New Leverage": res.Leverage,
 	}).Info("Changed symbol leverage")
-
 	return nil
 }
 
-// checkSymbolLeverage will change the symbol's initial leverage if its not the
+// changeSymbolLeverage will change the symbol's initial leverage if its not the
 // same as the desired symbol leverage. Returns whether or not the leverage was
 // changed.
-func (b *binanceClient) checkSymbolLeverage(
+func (b *binanceClient) changeSymbolLeverage(
 	ctx context.Context,
 	symbol string,
 	positions []*futures.AccountPosition,
 ) (bool, error) {
 	changed := false
-
 	currentLeverage, err := getCurrentLeverage(symbol, positions)
 	if err != nil {
 		return changed, err
 	}
-
 	if currentLeverage != defaultLeverage {
 		err := b.changeLeverage(ctx, symbol, defaultLeverage)
 		if err != nil {
@@ -57,7 +67,6 @@ func (b *binanceClient) checkSymbolLeverage(
 		}
 		changed = true
 	}
-
 	return changed, nil
 }
 
@@ -73,6 +82,5 @@ func getCurrentLeverage(symbol string, positions []*futures.AccountPosition) (in
 			}
 		}
 	}
-
 	return currentLeverage, nil
 }
