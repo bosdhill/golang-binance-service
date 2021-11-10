@@ -18,12 +18,12 @@ var recvWindowSchedule = []int64{
 	10000,
 }
 
-// DoFunc is the Do method belonging to each binance sdk service.
+// DoFunc is used to call the binance sdk service's Do method.
 type DoFunc func(context.Context, ...futures.RequestOption) (interface{}, error)
 
 // Retry will retry the request according to recvWindowSchedule.
 func (b *binanceClient) Retry(ctx context.Context, err error, do DoFunc) (interface{}, error) {
-	if b.shouldRetry(ctx, err) {
+	if b.shouldRetry(err) {
 		return b.retryWithRecvWindow(ctx, do)
 	}
 	return nil, err
@@ -40,9 +40,8 @@ func (b *binanceClient) retryWithRecvWindow(ctx context.Context, do DoFunc) (int
 	}
 
 	// Covers the second case of the request being outside of the recvWindow.
-	var res interface{}
 	for _, w := range recvWindowSchedule {
-		res, err = do(ctx, futures.WithRecvWindow(w))
+		res, err := do(ctx, futures.WithRecvWindow(w))
 		if err == nil {
 			return res, nil
 		}
@@ -77,10 +76,9 @@ func (b *binanceClient) serverTimeSync(ctx context.Context) error {
 // -1003 TOO_MANY_REQUESTS
 //
 // See https://github.com/binance/binance-spot-api-docs/blob/master/errors.md
-func (b *binanceClient) shouldRetry(ctx context.Context, err error) bool {
+func (b *binanceClient) shouldRetry(err error) bool {
 	if common.IsAPIError(err) {
-		// TODO: go-binance sdk doesn't have api error types, might need to
-		// implement this myself and push it upstream.
+		// TODO: go-binance sdk doesn't have api error types
 		switch apiErr := errors.NewAPIError(err); apiErr.Code {
 		case -1021: // INVALID_TIMESTAMP
 			log.WithField("Code", apiErr.Code).

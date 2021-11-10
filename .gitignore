@@ -16,3 +16,6 @@
 
 # Sensitive environment variables
 .env*
+
+# Logfiles
+*.log

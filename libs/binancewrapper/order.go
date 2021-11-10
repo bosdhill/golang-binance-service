@@ -8,14 +8,30 @@ import (
 	"github.com/adshao/go-binance/v2/futures"
 	"github.com/bosdhill/golang-binance-service/core/errors"
 	"github.com/bosdhill/golang-binance-service/core/models"
-	"github.com/bosdhill/golang-binance-service/libs/store"
+	"github.com/bosdhill/golang-binance-service/libs/store/info"
+	"github.com/bosdhill/golang-binance-service/libs/store/stats"
 	log "github.com/sirupsen/logrus"
 )
+
+// func opposite(side futures.PositionSideType) futures.SideType {
+// 	var ret futures.SideType
+// 	if side == futures.PositionSideTypeLong {
+// 		ret = futures.SideTypeSell
+// 	} else {
+// 		ret = futures.SideTypeBuy
+// 	}
+// 	return ret
+// }
 
 // CloseAllPositions will create a STOP_MARKET order that will be triggered when
 // the stopPrice is met with closePosition=true. If triggered, it will close all
 // open long (BUY) positions if the side is SELL, otherwise it will close all
 // open short (SELL) positions if the side is BUY.
+//
+// TODO: This doesn't guarantee all positions would be closed. In to close a
+// position, a market order must be placed in the opposite direction for the
+// same quantity. OR this can be managed with all the frontend server bookkeeping
+// (api keys, order info, position info)
 func (b *binanceClient) CloseAllPositions(
 	ctx context.Context,
 	symbol string,
@@ -26,6 +42,7 @@ func (b *binanceClient) CloseAllPositions(
 		Type(futures.OrderTypeStopMarket).
 		Symbol(symbol).
 		Side(side).
+		StopPrice(stopPrice).
 		ClosePosition(true)
 	var res *futures.CreateOrderResponse
 	res, err := svc.Do(ctx)
@@ -201,7 +218,7 @@ func calculateQuantity(size float64, symbol,
 	}
 
 	quantity := size / price
-	precision := store.NewInfo().GetQuantityPrecision(symbol)
+	precision := info.NewStore().GetQuantityPrecision(symbol)
 	return strconv.FormatFloat(quantity, 'f', precision, 64), nil
 }
 
@@ -213,7 +230,7 @@ func (b *binanceClient) calculateMarketQuantity(ctx context.Context,
 		return "", err
 	}
 
-	lastPrice := store.NewStats().GetLastPrice(order.Symbol)
+	lastPrice := stats.NewStore().GetLastPrice(order.Symbol)
 
 	log.WithFields(log.Fields{
 		"Last Price": lastPrice,

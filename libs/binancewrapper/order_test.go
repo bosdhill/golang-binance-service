@@ -11,7 +11,7 @@ import (
 	"github.com/adshao/go-binance/v2/futures"
 	"github.com/bosdhill/golang-binance-service/core/errors"
 	"github.com/bosdhill/golang-binance-service/core/models"
-	"github.com/bosdhill/golang-binance-service/libs/store"
+	"github.com/bosdhill/golang-binance-service/libs/store/info"
 	"github.com/bosdhill/golang-binance-service/libs/test"
 	"github.com/stretchr/testify/assert"
 )
@@ -158,7 +158,7 @@ func TestCalculateLimitQuantity(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		precision := store.NewInfo().GetQuantityPrecision(tc.order.Symbol)
+		precision := info.NewStore().GetQuantityPrecision(tc.order.Symbol)
 		expected := strconv.FormatFloat(tc.expected, 'f', precision, 32)
 		assert.Equal(t, expected, quantity, tc.name)
 	}
@@ -201,7 +201,7 @@ func TestCalculateMarketQuantity(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		precision := store.NewInfo().GetQuantityPrecision(tc.symbol)
+		precision := info.NewStore().GetQuantityPrecision(tc.symbol)
 		expected := strconv.FormatFloat(tc.expected, 'f', precision, 32)
 		assert.Equal(t, expected, quantity, tc.name)
 	}
@@ -217,31 +217,45 @@ func TestCreateMarketOrder(t *testing.T) {
 	client := NewClient(user)
 
 	tests := []struct {
-		name  string
-		order *models.Order
+		name      string
+		buyOrder  *models.Order
+		sellOrder *models.Order
 	}{
 		{
-			name: "create market order of Size 0.01 for BTCUSDT",
-			order: &models.Order{
+			name: "create market buy and sell orders of Size 0.01 for BTCUSDT",
+			buyOrder: &models.Order{
 				Type:       futures.OrderTypeMarket,
 				Symbol:     "BTCUSDT",
 				Side:       futures.SideTypeBuy,
 				Percentage: 0.01,
 			},
+			sellOrder: &models.Order{
+				Type:       futures.OrderTypeMarket,
+				Symbol:     "BTCUSDT",
+				Side:       futures.SideTypeSell,
+				Percentage: 0.01,
+			},
 		},
 		{
-			name: "create market order of Size 0.01 for ETHUSDT",
-			order: &models.Order{
+			name: "create market buy and sell orders of Size 0.01 for ETHUSDT",
+			buyOrder: &models.Order{
 				Type:       futures.OrderTypeMarket,
 				Symbol:     "ETHUSDT",
 				Side:       futures.SideTypeBuy,
+				Percentage: 0.01,
+			},
+			sellOrder: &models.Order{
+				Type:       futures.OrderTypeMarket,
+				Symbol:     "ETHUSDT",
+				Side:       futures.SideTypeSell,
 				Percentage: 0.01,
 			},
 		},
 	}
 
 	for _, tc := range tests {
-		res, err := client.CreateOrder(ctx, *tc.order)
+		// Create BUY order
+		res, err := client.CreateOrder(ctx, *tc.buyOrder)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -252,12 +266,10 @@ func TestCreateMarketOrder(t *testing.T) {
 		}
 		t.Logf(string(got))
 
-		// Close all long positions by creating a STOP_MARKET sell order at a
-		// very low stop price to guarantee that it will be triggered.
-		// Similar to https://github.com/sammchardy/python-binance/issues/536#issuecomment-643743964
-		res, err = client.CloseAllPositions(ctx, tc.order.Symbol, futures.SideTypeSell, "10.0")
+		// Create SELL order of same size
+		res, err = client.CreateOrder(ctx, *tc.sellOrder)
 		if err != nil {
-			t.Fatal(err, tc.name)
+			t.Fatal(err)
 		}
 
 		got, err = json.MarshalIndent(&res, "", " ")

@@ -1,6 +1,5 @@
-// Package store implements in memory stores for the binance exchange info and
-// price stats
-package store
+// Package store implements in an memory store for binance exchange price stats
+package stats
 
 import (
 	"context"
@@ -13,9 +12,10 @@ import (
 )
 
 var (
-	s            *statsStore
-	statsOnce    sync.Once
-	statsLogFile = "stats.log"
+	s               *statsStore
+	once            sync.Once
+	statsLogFile    = "stats.log"
+	defaultInterval = "3s"
 )
 
 // Stats stores various price stats for a futures symbol.
@@ -40,67 +40,58 @@ type statsStore struct {
 	l              *logwrapper.StandardLogger
 }
 
-// NewStats returns a reference to the in memory latest price store.
-func NewStats() *statsStore {
-	statsOnce.Do(func() {
+// NewStore returns a reference to the in memory latest price store.
+func NewStore() *statsStore {
+	once.Do(func() {
 		s = &statsStore{}
 		s.init()
 	})
 	return s
 }
 
-func (c *statsStore) init() {
-	c.l = logwrapper.New().WithLogFile(statsLogFile)
-	c.fetchSymbolsAndPriceStats()
-	c.startUpdates()
+func (s *statsStore) init() {
+	s.l = logwrapper.New().WithLogFile(statsLogFile)
+	s.updateInterval, _ = time.ParseDuration(defaultInterval)
+	s.fetchSymbolsAndPriceStats()
 }
 
 // WithInterval is the last price update interval in duration string format.
-func (c *statsStore) WithInterval(seconds string) *statsStore {
-	d, err := time.ParseDuration(seconds)
-	if err != nil {
-		return nil
-	}
-
-	c.updateInterval = d
-
-	c.l.WithFields(log.Fields{"price update interval": seconds}).Info()
-
-	return c
+func (s *statsStore) WithInterval(d string) {
+	s.updateInterval, _ = time.ParseDuration(d)
+	s.l.WithFields(log.Fields{"stats store update interval": d}).Info()
 }
 
 // GetLastPrice gets the last price for a futures symbol.
-func (c *statsStore) GetLastPrice(symbol string) string {
-	c.m.RLock()
-	defer c.m.RUnlock()
-	s := c.stats[symbol]
-	return s.LastPrice
+func (s *statsStore) GetLastPrice(symbol string) string {
+	s.m.RLock()
+	defer s.m.RUnlock()
+	return s.stats[symbol].LastPrice
 }
 
 // GetSymbols returns the list of futures symbols.
-func (c *statsStore) GetSymbols() []string {
-	return c.symbols
+func (s *statsStore) GetSymbols() []string {
+	return s.symbols
 }
 
 // fetchSymbolsAndPriceStats initializes the price stats map.
-func (c *statsStore) fetchSymbolsAndPriceStats() {
-	c.stats = make(map[string]Stats)
+func (s *statsStore) fetchSymbolsAndPriceStats() {
+	s.stats = make(map[string]Stats)
 
 	priceStats, err := futures.NewClient("", "").
 		NewListPriceChangeStatsService().
 		Do(context.Background())
 
 	if err != nil {
-		c.l.Fatal(err)
+		s.l.Fatal(err)
 		return
 	}
 
 	for _, priceStat := range priceStats {
-		c.l.Debug(log.Fields{"symbol": priceStat.Symbol,
+		s.l.Debug(log.Fields{"symbol": priceStat.Symbol,
 			"last price": priceStat.LastPrice})
 
-		c.symbols = append(c.symbols, priceStat.Symbol)
-		c.stats[priceStat.Symbol] = Stats{
+		s.symbols = append(s.symbols, priceStat.Symbol)
+		s.stats[priceStat.Symbol] = Stats{
 			PriceChange:        priceStat.PriceChange,
 			PriceChangePercent: priceStat.PriceChangePercent,
 			WeightedAvgPrice:   priceStat.WeightedAvgPrice,
@@ -111,14 +102,14 @@ func (c *statsStore) fetchSymbolsAndPriceStats() {
 }
 
 // update will update the actual map used to store each symbol's price stats
-func (c *statsStore) update(events futures.WsAllMarketTickerEvent) {
+func (s *statsStore) update(events futures.WsAllMarketTickerEvent) {
 	for _, priceStat := range events {
-		c.l.WithFields(log.Fields{"symbol": priceStat.Symbol,
+		s.l.WithFields(log.Fields{"symbol": priceStat.Symbol,
 			"last price": priceStat.ClosePrice}).
 			Debug("updating last price")
 
 		// We care about LastPrice (used in new order quantity calc)
-		c.stats[priceStat.Symbol] = Stats{
+		s.stats[priceStat.Symbol] = Stats{
 			PriceChange:        priceStat.PriceChange,
 			PriceChangePercent: priceStat.PriceChangePercent,
 			WeightedAvgPrice:   priceStat.WeightedAvgPrice,
@@ -130,21 +121,21 @@ func (c *statsStore) update(events futures.WsAllMarketTickerEvent) {
 
 // startUpdates opens the websocket and will start updating the entire
 // statsStore every updateInterval + 1 sec.
-func (c *statsStore) startUpdates() {
+func (s *statsStore) StartUpdates() {
 	eventHandler := func(events futures.WsAllMarketTickerEvent) {
-		time.Sleep(c.updateInterval)
-		c.m.Lock()
-		defer c.m.Unlock()
-		c.update(events)
+		time.Sleep(s.updateInterval)
+		s.m.Lock()
+		defer s.m.Unlock()
+		s.update(events)
 	}
 
 	errHandler := func(err error) {
-		c.l.Trace(err)
+		s.l.Trace(err)
 	}
 
 	_, _, err := futures.WsAllMarketTickerServe(eventHandler, errHandler)
 	if err != nil {
-		c.l.Fatal(err)
+		s.l.Fatal(err)
 		return
 	}
 }

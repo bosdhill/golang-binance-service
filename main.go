@@ -8,7 +8,8 @@ import (
 	binance "github.com/adshao/go-binance/v2"
 	"github.com/adshao/go-binance/v2/delivery"
 	"github.com/adshao/go-binance/v2/futures"
-	"github.com/bosdhill/golang-binance-service/libs/store"
+	"github.com/bosdhill/golang-binance-service/libs/store/info"
+	"github.com/bosdhill/golang-binance-service/libs/store/stats"
 	v1 "github.com/bosdhill/golang-binance-service/routers/v1"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
@@ -90,10 +91,10 @@ func main() {
 	}
 
 	// Create in memory store to maintain price stats
-	store.NewStats().WithInterval("3s")
+	stats.NewStore().StartUpdates()
 
 	// Create in memory store for exchange info
-	store.NewInfo()
+	info.NewStore().StartUpdates()
 
 	router.Run(fmt.Sprintf(":%v", s.Port))
 }

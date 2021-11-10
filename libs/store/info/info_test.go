@@ -1,4 +1,5 @@
-package store
+// Package info implements an in memory store for binance exchange info
+package info
 
 import (
 	"testing"
@@ -12,12 +13,12 @@ func init() {
 }
 
 func TestNewInfo(t *testing.T) {
-	info := NewInfo()
+	info := NewStore()
 	assert.NotEqual(t, nil, info, "info is not nil")
 }
 
 func TestInfo(t *testing.T) {
-	info := NewInfo()
+	info := NewStore()
 
 	tests := []struct {
 		name          string
