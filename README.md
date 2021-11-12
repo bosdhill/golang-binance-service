@@ -189,7 +189,7 @@ Example response body:
 
 ## `POST` `/v1/user/order`
 
-Creates either a `LIMIT`, `MARKET`, or `STOP_LOSS` order, depending on the order type provided.
+Creates either a `LIMIT`, `MARKET`, or `STOP_MARKET` order, depending on the order type provided.
 
 Example request body:
 ```
