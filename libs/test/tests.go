@@ -26,6 +26,8 @@ func InitializeBinanceTests() {
 
 // InitializeStoreTests configures the store tests
 func IntializeStoreTests() {
+	gin.SetMode(gin.TestMode)
+
 	futures.UseTestnet = true
 
 	// Report the caller method in the logs
@@ -35,10 +37,3 @@ func IntializeStoreTests() {
 	// log.SetLevel(log.DebugLevel)
 	log.SetFormatter(&log.JSONFormatter{})
 }
-
-// // NewTextCtx returns a context, futures client, and cancel function used in tests
-// func NewTestCtx(user *models.User) (context.Context, *futures.Client, context.CancelFunc) {
-// 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
-// 	client := futures.NewClient(user.APIKey, user.APISecret)
-// 	return ctx, client, cancel
-// }

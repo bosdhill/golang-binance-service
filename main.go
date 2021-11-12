@@ -91,10 +91,10 @@ func main() {
 	}
 
 	// Create in memory store to maintain price stats
-	stats.NewStore().StartUpdates()
+	stats.NewStore()
 
 	// Create in memory store for exchange info
-	info.NewStore().StartUpdates()
+	info.NewStore()
 
 	router.Run(fmt.Sprintf(":%v", s.Port))
 }

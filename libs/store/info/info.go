@@ -7,23 +7,20 @@ import (
 	"time"
 
 	"github.com/adshao/go-binance/v2/futures"
-	"github.com/bosdhill/golang-binance-service/libs/logwrapper"
 	log "github.com/sirupsen/logrus"
 )
 
 var (
-	e               *exchangeInfoStore
-	once            sync.Once
-	infoLogFile     = "exchangeInfo.log"
-	defaultInterval = "30m"
+	e            *exchangeInfoStore
+	once         sync.Once
+	defaultDelay = "30m"
 )
 
 type exchangeInfoStore struct {
-	info           map[string]futures.Symbol
-	m              sync.RWMutex
-	updateInterval time.Duration
-	symbols        []string
-	l              *logwrapper.StandardLogger
+	info        map[string]futures.Symbol
+	m           sync.RWMutex
+	updateDelay time.Duration
+	symbols     []string
 }
 
 // NewStore returns a reference to the in memory exchangeInfo store
@@ -36,9 +33,9 @@ func NewStore() *exchangeInfoStore {
 }
 
 func (e *exchangeInfoStore) init() {
-	e.l = logwrapper.New().WithLogFile(infoLogFile)
-	e.updateInterval, _ = time.ParseDuration(defaultInterval)
+	e.updateDelay, _ = time.ParseDuration(defaultDelay)
 	e.fetchExchangeInfo()
+	e.startUpdates()
 }
 
 func (e *exchangeInfoStore) fetchExchangeInfo() {
@@ -104,10 +101,10 @@ func (e *exchangeInfoStore) GetPriceFilter(symbol string) *futures.PriceFilter {
 	return s.PriceFilter()
 }
 
-// WithInterval is the last price update interval in duration string format.
-func (c *exchangeInfoStore) WithInterval(d string) {
-	c.updateInterval, _ = time.ParseDuration(d)
-	c.l.WithFields(log.Fields{"exchange info store update interval": d}).Info()
+// WithDelay is the last price update delay in duration string format.
+func (e *exchangeInfoStore) WithDelay(d string) {
+	e.updateDelay, _ = time.ParseDuration(d)
+	log.WithFields(log.Fields{"exchange info store update delay": d}).Info()
 }
 
 func (e *exchangeInfoStore) update() {
@@ -121,15 +118,19 @@ func (e *exchangeInfoStore) update() {
 	}
 
 	for _, s := range exchangeInfo.Symbols {
+		log.WithFields(log.Fields{"symbol": s.Symbol,
+			"info": s}).
+			Debug("Updating symbol's exchange info")
+
 		e.info[s.Symbol] = s
 	}
 }
 
-// StartUpdates opens the websocket and will start updating the entire
+// startUpdates opens the websocket and will start updating the entire
 // statsStore every updateInterval + 1 sec.
-func (c *exchangeInfoStore) StartUpdates() {
+func (c *exchangeInfoStore) startUpdates() {
 	go func() {
-		time.Sleep(c.updateInterval)
+		time.Sleep(c.updateDelay)
 		e.m.Lock()
 		defer e.m.Unlock()
 		c.update()

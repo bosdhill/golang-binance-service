@@ -2,6 +2,7 @@
 package stats
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -25,15 +26,29 @@ func TestGetSymbols(t *testing.T) {
 }
 
 func TestGetLastPrice(t *testing.T) {
-	symbols := []string{"ETHUSDT", "BTCUSDT"}
 	stats := NewStore()
+	tests := []struct {
+		symbol    string
+		lastPrice string
+	}{
+		{
+			symbol:    "ETHUSDT",
+			lastPrice: stats.GetLastPrice("ETHUSDT"),
+		},
+		{
+			symbol:    "BTCUSDT",
+			lastPrice: stats.GetLastPrice("BTCUSDT"),
+		},
+	}
 
-	var lastPrice string
-	var newLastPrice string
-	for _, symbol := range symbols {
-		lastPrice = stats.GetLastPrice(symbol)
-		time.Sleep(30 * time.Second)
-		newLastPrice = stats.GetLastPrice(symbol)
-		assert.NotEqual(t, lastPrice, newLastPrice, "last price is not updated")
+	time.Sleep(15 * time.Second)
+	for _, tc := range tests {
+		newLastPrice := stats.GetLastPrice(tc.symbol)
+		assert.NotEqual(
+			t,
+			tc.lastPrice,
+			newLastPrice,
+			fmt.Sprintf("last price not updated for %s", tc.symbol),
+		)
 	}
 }
