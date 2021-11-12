@@ -138,7 +138,7 @@ func (b *binanceClient) CancelAllOrders(ctx context.Context, symbol string) erro
 // CreateOrder creates a futures order.
 func (b *binanceClient) CreateOrder(
 	ctx context.Context,
-	order models.Order,
+	order *models.Order,
 ) (*futures.CreateOrderResponse, error) {
 	svc := b.c.NewCreateOrderService()
 
@@ -150,7 +150,7 @@ func (b *binanceClient) CreateOrder(
 	var err error
 	switch order.Type {
 	case futures.OrderTypeMarket:
-		quantity, err = b.calculateMarketQuantity(ctx, &order)
+		quantity, err = b.calculateMarketQuantity(ctx, order)
 		if err != nil {
 			return nil, err
 		}
@@ -164,7 +164,7 @@ func (b *binanceClient) CreateOrder(
 			"Percentage": order.Percentage,
 		}).Info("New Market Order")
 	case futures.OrderTypeLimit:
-		quantity, err = b.calculateLimitQuantity(ctx, &order)
+		quantity, err = b.calculateLimitQuantity(ctx, order)
 		if err != nil {
 			return nil, err
 		}
@@ -174,20 +174,31 @@ func (b *binanceClient) CreateOrder(
 			TimeInForce(order.TimeInForce)
 
 		log.WithFields(log.Fields{
-			"Symbol":     order.Symbol,
-			"Side":       order.Side,
-			"Quantity":   quantity,
-			"Price":      order.Price,
-			"Percentage": order.Percentage,
+			"Symbol":      order.Symbol,
+			"Side":        order.Side,
+			"Quantity":    quantity,
+			"Price":       order.Price,
+			"Percentage":  order.Percentage,
+			"TimeInForce": order.TimeInForce,
 		}).Info("New Limit Order")
 	case futures.OrderTypeStopMarket:
-		svc.StopPrice(order.StopPrice)
+		quantity, err = b.calculateStopMarketQuantity(ctx, order)
+		if err != nil {
+			return nil, err
+		}
+
+		svc.StopPrice(order.StopPrice).
+			Quantity(quantity).
+			TimeInForce(order.TimeInForce)
 
 		log.WithFields(log.Fields{
-			"Symbol":    order.Symbol,
-			"Side":      order.Side,
-			"StopPrice": order.StopPrice,
-		}).Info("New Stop Market Order")
+			"Symbol":      order.Symbol,
+			"Side":        order.Side,
+			"Quantity":    quantity,
+			"StopPrice":   order.StopPrice,
+			"Percentage":  order.Percentage,
+			"TimeInForce": order.TimeInForce,
+		}).Info("New Market Order")
 	}
 
 	var res *futures.CreateOrderResponse
@@ -209,9 +220,48 @@ func (b *binanceClient) CreateOrder(
 	return res, err
 }
 
+// calculateMarketQuantity returns the quantity of a market order.
+func (b *binanceClient) calculateMarketQuantity(ctx context.Context,
+	order *models.Order) (string, error) {
+	return b.calculate(
+		ctx,
+		order,
+		func(size float64) (string, error) {
+			lastPrice := stats.NewStore().GetLastPrice(order.Symbol)
+			return calculateQuantity(size, order.Symbol, lastPrice)
+		},
+	)
+}
+
+// calculateStopMarketQuantity returns the quantity of a stop market order
+// (similar to calculateLimitQuantity except it uses StopPrice).
+func (b *binanceClient) calculateStopMarketQuantity(
+	ctx context.Context,
+	order *models.Order,
+) (string, error) {
+	return b.calculate(
+		ctx,
+		order,
+		func(size float64) (string, error) {
+			return calculateQuantity(size, order.Symbol, order.StopPrice)
+		},
+	)
+}
+
+// calculateLimitQuantity returns the quantity of a limit order.
+func (b *binanceClient) calculateLimitQuantity(ctx context.Context,
+	order *models.Order) (string, error) {
+	return b.calculate(
+		ctx,
+		order,
+		func(size float64) (string, error) {
+			return calculateQuantity(size, order.Symbol, order.Price)
+		},
+	)
+}
+
 // calculateQuantity returns the quantity for a given size, symbol, and price.
-func calculateQuantity(size float64, symbol,
-	orderPrice string) (string, error) {
+func calculateQuantity(size float64, symbol, orderPrice string) (string, error) {
 	price, err := strconv.ParseFloat(orderPrice, 64)
 	if err != nil {
 		return "", err
@@ -222,42 +272,21 @@ func calculateQuantity(size float64, symbol,
 	return strconv.FormatFloat(quantity, 'f', precision, 64), nil
 }
 
-// calculateMarketQuantity returns the quantity of a market order.
-func (b *binanceClient) calculateMarketQuantity(ctx context.Context,
-	order *models.Order) (string, error) {
+// calcFunc is the function used for calculating the quantity given the size.
+type calcFunc func(size float64) (string, error)
+
+// calculate returns the quantity by first calculating the position size for the
+// symbol and then calcFunc to calculate the order quantity.
+func (b *binanceClient) calculate(
+	ctx context.Context,
+	order *models.Order,
+	calcQuantity calcFunc,
+) (string, error) {
 	size, err := b.calculatePositionSize(ctx, order.Symbol, order.Percentage)
 	if err != nil {
 		return "", err
 	}
-
-	lastPrice := stats.NewStore().GetLastPrice(order.Symbol)
-
-	log.WithFields(log.Fields{
-		"Last Price": lastPrice,
-	}).Info("Last market price")
-
-	quantity, err := calculateQuantity(size, order.Symbol, lastPrice)
-	if err != nil {
-		return "", err
-	}
-
-	return quantity, nil
-}
-
-// calculateLimitQuantity returns the quantity of a limit order.
-func (b *binanceClient) calculateLimitQuantity(ctx context.Context,
-	order *models.Order) (string, error) {
-	size, err := b.calculatePositionSize(ctx, order.Symbol, order.Percentage)
-	if err != nil {
-		return "", err
-	}
-
-	quantity, err := calculateQuantity(size, order.Symbol, order.Price)
-	if err != nil {
-		return "", err
-	}
-
-	return quantity, nil
+	return calcQuantity(size)
 }
 
 // calculatePositionSize returns the user's position size. The position size

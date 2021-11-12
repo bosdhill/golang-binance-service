@@ -23,7 +23,7 @@ type DoFunc func(context.Context, ...futures.RequestOption) (interface{}, error)
 
 // Retry will retry the request according to recvWindowSchedule.
 func (b *binanceClient) Retry(ctx context.Context, err error, do DoFunc) (interface{}, error) {
-	if b.shouldRetry(err) {
+	if retryable(err) {
 		return b.retryWithRecvWindow(ctx, do)
 	}
 	return nil, err
@@ -58,7 +58,7 @@ func (b *binanceClient) serverTimeSync(ctx context.Context) error {
 	return err
 }
 
-// shouldRetry returns whether or not the request should be retried based on the
+// retryable returns whether or not the request should be retried based on the
 // api error code. The request will only be retried if the api call failed with
 // error codes:
 // -1021 INVALID_TIMESTAMP
@@ -76,7 +76,7 @@ func (b *binanceClient) serverTimeSync(ctx context.Context) error {
 // -1003 TOO_MANY_REQUESTS
 //
 // See https://github.com/binance/binance-spot-api-docs/blob/master/errors.md
-func (b *binanceClient) shouldRetry(err error) bool {
+func retryable(err error) bool {
 	if common.IsAPIError(err) {
 		// TODO: go-binance sdk doesn't have api error types
 		switch apiErr := errors.NewAPIError(err); apiErr.Code {

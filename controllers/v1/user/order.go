@@ -42,7 +42,7 @@ func CreateOrder(c *gin.Context) {
 	client := binance.NewClient(&bot.User)
 	defer cancel()
 
-	orderResp, err := client.CreateOrder(ctx, bot.Order)
+	orderResp, err := client.CreateOrder(ctx, &bot.Order)
 	if err != nil {
 		if common.IsAPIError(err) {
 			apiErr := errors.NewAPIError(err)

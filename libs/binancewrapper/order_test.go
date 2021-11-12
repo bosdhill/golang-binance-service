@@ -12,9 +12,31 @@ import (
 	"github.com/bosdhill/golang-binance-service/core/errors"
 	"github.com/bosdhill/golang-binance-service/core/models"
 	"github.com/bosdhill/golang-binance-service/libs/store/info"
+	"github.com/bosdhill/golang-binance-service/libs/store/stats"
 	"github.com/bosdhill/golang-binance-service/libs/test"
 	"github.com/stretchr/testify/assert"
 )
+
+// percentage to increase or decrease last price by
+var percentage = 0.05
+
+// calcLastPrice returns lastPrice either decreased or increased by a percentage.
+func calcLastPrice(percentage float64, symbol string) string {
+	p := stats.NewStore().GetLastPrice(symbol)
+	lastPrice, _ := strconv.ParseFloat(p, 64)
+	precision := info.NewStore().GetPricePrecision(symbol)
+	return strconv.FormatFloat(lastPrice+percentage*lastPrice, 'f', precision, 64)
+}
+
+// lastPriceIncreased returns the symbol's last price increased by a percentage.
+func lastPriceIncreased(symbol string) string {
+	return calcLastPrice(percentage, symbol)
+}
+
+// lastPriceDecreased returns the symbol's last price decreased by a percentage.
+func lastPriceDecreased(symbol string) string {
+	return calcLastPrice(-percentage, symbol)
+}
 
 func init() {
 	test.InitializeBinanceTests()
@@ -255,7 +277,7 @@ func TestCreateMarketOrder(t *testing.T) {
 
 	for _, tc := range tests {
 		// Create BUY order
-		res, err := client.CreateOrder(ctx, *tc.buyOrder)
+		res, err := client.CreateOrder(ctx, tc.buyOrder)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -267,7 +289,7 @@ func TestCreateMarketOrder(t *testing.T) {
 		t.Logf(string(got))
 
 		// Create SELL order of same size
-		res, err = client.CreateOrder(ctx, *tc.sellOrder)
+		res, err = client.CreateOrder(ctx, tc.sellOrder)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -277,5 +299,122 @@ func TestCreateMarketOrder(t *testing.T) {
 			t.Fatal(err, tc.name)
 		}
 		t.Logf(string(got))
+	}
+}
+
+func TestCreateLimitOrder(t *testing.T) {
+	user := &models.User{
+		APIKey:    os.Getenv("FUTURES_API_KEY"),
+		APISecret: os.Getenv("FUTURES_API_SECRET"),
+	}
+
+	ctx := context.Background()
+	client := NewClient(user)
+
+	tests := []struct {
+		name  string
+		order *models.Order
+	}{
+		{
+			name: "create limit buy and market sell orders of Size 0.01 for BTCUSDT",
+			order: &models.Order{
+				Type:        futures.OrderTypeLimit,
+				Symbol:      "BTCUSDT",
+				Side:        futures.SideTypeBuy,
+				Percentage:  0.01,
+				TimeInForce: futures.TimeInForceTypeGTC,
+				Price:       lastPriceDecreased("BTCUSDT"),
+			},
+		},
+		{
+			name: "create limit buy and market sell orders of Size 0.01 for ETHUSDT",
+			order: &models.Order{
+				Type:        futures.OrderTypeLimit,
+				Symbol:      "ETHUSDT",
+				Side:        futures.SideTypeBuy,
+				Percentage:  0.01,
+				TimeInForce: futures.TimeInForceTypeGTC,
+				Price:       lastPriceDecreased("ETHUSDT"),
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		// Create BUY order
+		res, err := client.CreateOrder(ctx, tc.order)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		got, err := json.MarshalIndent(&res, "", " ")
+		if err != nil {
+			t.Fatal(err, tc.name)
+		}
+		t.Logf(string(got))
+
+		// Cancel limit order
+		err = client.CancelAllOrders(ctx, tc.order.Symbol)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func TestCreateStopMarketOrder(t *testing.T) {
+	user := &models.User{
+		APIKey:    os.Getenv("FUTURES_API_KEY"),
+		APISecret: os.Getenv("FUTURES_API_SECRET"),
+	}
+
+	ctx := context.Background()
+	client := NewClient(user)
+
+	tests := []struct {
+		name      string
+		order     *models.Order
+		sellOrder *models.Order
+	}{
+		{
+			name: "create a stop market/stop loss order of Size 0.01 for BTCUSDT",
+			order: &models.Order{
+				Type:        futures.OrderTypeStopMarket,
+				Symbol:      "BTCUSDT",
+				Side:        futures.SideTypeBuy,
+				Percentage:  0.01,
+				TimeInForce: futures.TimeInForceTypeGTC,
+				StopPrice:   lastPriceIncreased("BTCUSDT"),
+			},
+		},
+		{
+			name: "create a stop market/stop loss order of Size 0.01 for ETHUSDT",
+			order: &models.Order{
+				Type:        futures.OrderTypeStopMarket,
+				Symbol:      "ETHUSDT",
+				Side:        futures.SideTypeBuy,
+				Percentage:  0.01,
+				TimeInForce: futures.TimeInForceTypeGTC,
+				StopPrice:   lastPriceIncreased("ETHUSDT"),
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		// Create STOP_MARKET order
+		res, err := client.CreateOrder(ctx, tc.order)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		got, err := json.MarshalIndent(&res, "", " ")
+		if err != nil {
+			t.Fatal(err, tc.name)
+		}
+		t.Logf(string(got))
+
+		// Cancel stop market order
+		err = client.CancelAllOrders(ctx, tc.order.Symbol)
+		if err != nil {
+			t.Fatal(err)
+		}
 	}
 }

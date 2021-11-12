@@ -2,9 +2,14 @@
 
 # Testing
 
-To run tests:
+To run all tests:
 ```
 godotenv -f .env.test go test -v ./...
+```
+
+To run a specific test not cached:
+```
+godotenv -f .env.test go test -count=1 -run TestCreateLimitOrder -v ./libs/binancewrapper
 ```
 
 # Endpoints
