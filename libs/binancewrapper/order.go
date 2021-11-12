@@ -8,6 +8,7 @@ import (
 	"github.com/adshao/go-binance/v2/futures"
 	"github.com/bosdhill/golang-binance-service/core/errors"
 	"github.com/bosdhill/golang-binance-service/core/models"
+	"github.com/bosdhill/golang-binance-service/libs/binancewrapper/retry"
 	"github.com/bosdhill/golang-binance-service/libs/store/info"
 	"github.com/bosdhill/golang-binance-service/libs/store/stats"
 	log "github.com/sirupsen/logrus"
@@ -37,14 +38,10 @@ func (b *binanceClient) CloseAllPositions(
 	var res *futures.CreateOrderResponse
 	res, err := svc.Do(ctx)
 	if err != nil {
-		retryRes, err := b.Retry(
-			ctx,
-			err,
-			func(ctx context.Context, opts ...futures.RequestOption) (interface{}, error) {
-				log.WithField("recvWindow", opts).Info("Retrying CloseAllPositions request")
-				return svc.Do(ctx, opts...)
-			},
-		)
+		retryRes, err := retry.Do(err, func(opts ...futures.RequestOption) (interface{}, error) {
+			log.WithField("recvWindow", opts).Info("Retrying CloseAllPositions request")
+			return svc.Do(ctx, opts...)
+		})
 		if err != nil {
 			return nil, err
 		}
@@ -79,14 +76,10 @@ func (b *binanceClient) CancelMultipleOrders(
 	var res []*futures.CancelOrderResponse
 	res, err := svc.Do(ctx)
 	if err != nil {
-		retryRes, err := b.Retry(
-			ctx,
-			err,
-			func(ctx context.Context, opts ...futures.RequestOption) (interface{}, error) {
-				log.WithField("recvWindow", opts).Info("Retrying CancelMultipleOrders request")
-				return svc.Do(ctx, opts...)
-			},
-		)
+		retryRes, err := retry.Do(err, func(opts ...futures.RequestOption) (interface{}, error) {
+			log.WithField("recvWindow", opts).Info("Retrying CancelMultipleOrders request")
+			return svc.Do(ctx, opts...)
+		})
 		if err != nil {
 			return nil, err
 		}
@@ -110,14 +103,10 @@ func (b *binanceClient) CancelAllOrders(ctx context.Context, symbol string) erro
 	svc := b.c.NewCancelAllOpenOrdersService().Symbol(symbol)
 	err := svc.Do(ctx)
 	if err != nil {
-		_, err := b.Retry(
-			ctx,
-			err,
-			func(ctx context.Context, opts ...futures.RequestOption) (interface{}, error) {
-				log.WithField("recvWindow", opts).Info("Retrying CancelAllOrders request")
-				return nil, svc.Do(ctx, opts...)
-			},
-		)
+		_, err := retry.Do(err, func(opts ...futures.RequestOption) (interface{}, error) {
+			log.WithField("recvWindow", opts).Info("Retrying CancelAllOrders request")
+			return nil, svc.Do(ctx, opts...)
+		})
 		if err != nil {
 			return err
 		}
@@ -194,14 +183,10 @@ func (b *binanceClient) CreateOrder(
 	var res *futures.CreateOrderResponse
 	res, err = svc.Do(ctx)
 	if err != nil {
-		retryRes, err := b.Retry(
-			ctx,
-			err,
-			func(ctx context.Context, opts ...futures.RequestOption) (interface{}, error) {
-				log.WithField("recvWindow", opts).Info("Retrying CreateOrder request")
-				return svc.Do(ctx, opts...)
-			},
-		)
+		retryRes, err := retry.Do(err, func(opts ...futures.RequestOption) (interface{}, error) {
+			log.WithField("recvWindow", opts).Info("Retrying CreateOrder request")
+			return svc.Do(ctx, opts...)
+		})
 		if err != nil {
 			return nil, err
 		}

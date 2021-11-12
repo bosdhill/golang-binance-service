@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"github.com/adshao/go-binance/v2/futures"
+	"github.com/bosdhill/golang-binance-service/libs/binancewrapper/retry"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -26,14 +27,10 @@ func (b *binanceClient) changeLeverage(
 	var res *futures.SymbolLeverage
 	res, err := svc.Do(ctx)
 	if err != nil {
-		retryRes, err := b.Retry(
-			ctx,
-			err,
-			func(ctx context.Context, opts ...futures.RequestOption) (interface{}, error) {
-				log.WithField("recvWindow", opts).Info("Retrying ChangeLeverage request")
-				return svc.Do(ctx, opts...)
-			},
-		)
+		retryRes, err := retry.Do(err, func(opts ...futures.RequestOption) (interface{}, error) {
+			log.WithField("recvWindow", opts).Info("Retrying ChangeLeverage request")
+			return svc.Do(ctx, opts...)
+		})
 		if err != nil {
 			return err
 		}

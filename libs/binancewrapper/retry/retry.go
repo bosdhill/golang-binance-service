@@ -1,5 +1,5 @@
 // retry implements request retry logic for the binance api.
-package binancewrapper
+package retry
 
 import (
 	"context"
@@ -19,29 +19,29 @@ var recvWindowSchedule = []int64{
 }
 
 // DoFunc is used to call the binance sdk service's Do method.
-type DoFunc func(context.Context, ...futures.RequestOption) (interface{}, error)
+type DoFunc func(...futures.RequestOption) (interface{}, error)
 
-// Retry will retry the request according to recvWindowSchedule.
-func (b *binanceClient) Retry(ctx context.Context, err error, do DoFunc) (interface{}, error) {
+// Do will retry do according to recvWindowSchedule.
+func Do(err error, do DoFunc) (interface{}, error) {
 	if retryable(err) {
-		return b.retryWithRecvWindow(ctx, do)
+		return retryWithRecvWindow(do)
 	}
 	return nil, err
 }
 
 // retryWithRecvWindow resyncs the system time with the server time and retries
 // the request according to recvWindowSchedule.
-func (b *binanceClient) retryWithRecvWindow(ctx context.Context, do DoFunc) (interface{}, error) {
+func retryWithRecvWindow(do DoFunc) (interface{}, error) {
 	// Covers the first case of the request timestamp being 1000ms or more ahead
 	// of the binance server's time.
-	err := b.serverTimeSync(ctx)
+	err := ServerTimeSync()
 	if err != nil {
 		return nil, err
 	}
 
 	// Covers the second case of the request being outside of the recvWindow.
 	for _, w := range recvWindowSchedule {
-		res, err := do(ctx, futures.WithRecvWindow(w))
+		res, err := do(futures.WithRecvWindow(w))
 		if err == nil {
 			return res, nil
 		}
@@ -49,9 +49,12 @@ func (b *binanceClient) retryWithRecvWindow(ctx context.Context, do DoFunc) (int
 	return nil, err
 }
 
-// serverTimeSync sets the time offset for each request to the binance server time.
-func (b *binanceClient) serverTimeSync(ctx context.Context) error {
-	serverTime, err := b.c.NewServerTimeService().Do(ctx)
+// ServerTimeSync sets the time offset for each request to the binance server time.
+func ServerTimeSync() error {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	client := futures.NewClient("", "")
+	serverTime, err := client.NewServerTimeService().Do(ctx)
 	if err == nil {
 		log.WithField("ServerTime", serverTime).Info("Updated time offset")
 	}

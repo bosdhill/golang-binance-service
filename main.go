@@ -77,6 +77,8 @@ func init() {
 
 	// Only log the Info severity or above
 	log.SetLevel(log.InfoLevel)
+
+	log.SetFormatter(&log.JSONFormatter{})
 }
 
 func main() {

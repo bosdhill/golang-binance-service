@@ -8,6 +8,7 @@ import (
 	"github.com/adshao/go-binance/v2/futures"
 	"github.com/bosdhill/golang-binance-service/core/errors"
 	"github.com/bosdhill/golang-binance-service/core/models"
+	"github.com/bosdhill/golang-binance-service/libs/binancewrapper/retry"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -23,11 +24,9 @@ func NewClient(user *models.User) *binanceClient {
 	client := futures.NewClient(user.APIKey, user.APISecret)
 	b := binanceClient{client}
 	binanceOnce.Do(func() {
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
 		// Should store timeoffset somewhere for future use when new clients are
 		// created since this function can be called concurrently
-		err := b.serverTimeSync(ctx)
+		err := retry.ServerTimeSync()
 		if err != nil {
 			log.Fatal(err, "could not get binance server time and set time offset")
 		}
@@ -41,14 +40,10 @@ func (b *binanceClient) GetAccount(ctx context.Context) (*futures.Account, error
 	var res *futures.Account
 	res, err := svc.Do(ctx)
 	if err != nil {
-		retryRes, err := b.Retry(
-			ctx,
-			err,
-			func(ctx context.Context, opts ...futures.RequestOption) (interface{}, error) {
-				log.WithField("recvWindow", opts).Info("Retrying GetAccount request")
-				return svc.Do(ctx, opts...)
-			},
-		)
+		retryRes, err := retry.Do(err, func(opts ...futures.RequestOption) (interface{}, error) {
+			log.WithField("recvWindow", opts).Info("Retrying GetAccount request")
+			return svc.Do(ctx, opts...)
+		})
 		if err != nil {
 			return nil, err
 		}
@@ -63,14 +58,10 @@ func (b *binanceClient) getBalances(ctx context.Context) ([]*futures.Balance, er
 	var res []*futures.Balance
 	res, err := svc.Do(ctx)
 	if err != nil {
-		retryRes, err := b.Retry(
-			ctx,
-			err,
-			func(ctx context.Context, opts ...futures.RequestOption) (interface{}, error) {
-				log.WithField("recvWindow", opts).Info("Retrying GetBalance request")
-				return svc.Do(ctx, opts...)
-			},
-		)
+		retryRes, err := retry.Do(err, func(opts ...futures.RequestOption) (interface{}, error) {
+			log.WithField("recvWindow", opts).Info("Retrying GetBalance request")
+			return svc.Do(ctx, opts...)
+		})
 		if err != nil {
 			return nil, err
 		}
