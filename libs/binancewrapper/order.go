@@ -13,22 +13,12 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// func opposite(side futures.PositionSideType) futures.SideType {
-// 	var ret futures.SideType
-// 	if side == futures.PositionSideTypeLong {
-// 		ret = futures.SideTypeSell
-// 	} else {
-// 		ret = futures.SideTypeBuy
-// 	}
-// 	return ret
-// }
-
 // CloseAllPositions will create a STOP_MARKET order that will be triggered when
 // the stopPrice is met with closePosition=true. If triggered, it will close all
 // open long (BUY) positions if the side is SELL, otherwise it will close all
 // open short (SELL) positions if the side is BUY.
 //
-// TODO: This doesn't guarantee all positions would be closed. In to close a
+// TODO: This doesn't guarantee all positions would be closed. In order to close a
 // position, a market order must be placed in the opposite direction for the
 // same quantity. OR this can be managed with all the frontend server bookkeeping
 // (api keys, order info, position info)

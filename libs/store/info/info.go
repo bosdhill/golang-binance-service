@@ -125,7 +125,7 @@ func (e *exchangeInfoStore) update() {
 	}
 }
 
-// startUpdates opens the websocket and will start updating the entire
+// StartUpdates opens the websocket and will start updating the entire
 // statsStore every updateInterval + 1 sec.
 func (c *exchangeInfoStore) StartUpdates() {
 	go func() {

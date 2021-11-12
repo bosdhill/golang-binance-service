@@ -23,14 +23,12 @@ type ServerCtx struct {
 }
 
 var (
-	router = gin.Default()
+	router      = gin.Default()
+	defaultPort = "4200"
 )
 
 func loadServerCtx() *ServerCtx {
-	s := &ServerCtx{"5000",
-		false,
-		false,
-	}
+	s := &ServerCtx{defaultPort, false, false}
 
 	err := godotenv.Load()
 	if err != nil {
@@ -59,9 +57,9 @@ func loadServerCtx() *ServerCtx {
 	delivery.UseTestnet = useTestnet
 
 	log.WithFields(log.Fields{
-		"Port":        s.Port,
-		"UseTesetnet": s.UseTestnet,
-		"Debug":       s.Debug,
+		"Port":       s.Port,
+		"UseTestnet": s.UseTestnet,
+		"Debug":      s.Debug,
 	}).Info("Server configuration loaded")
 
 	return s

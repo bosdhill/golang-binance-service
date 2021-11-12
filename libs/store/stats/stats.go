@@ -119,7 +119,7 @@ func (s *statsStore) update(events futures.WsAllMarketTickerEvent) {
 	}
 }
 
-// startUpdates opens the websocket and will start updating the entire
+// StartUpdates opens the websocket and will start updating the entire
 // statsStore every updateInterval + 1 sec.
 func (s *statsStore) StartUpdates() {
 	eventHandler := func(events futures.WsAllMarketTickerEvent) {

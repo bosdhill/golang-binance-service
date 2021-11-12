@@ -1,4 +1,4 @@
-PORT=5000
+PORT=4200
 
 build:
 	docker build --build-arg $(PORT) -t binance-server . 

@@ -1,6 +1,44 @@
 # golang-binance-service
 
+# Setup, Build, and Run
+
+You might need to update `go.mod`:
+```
+go mod tidy
+go mod vendor
+```
+
+Create an `.env` file with:
+```
+PORT=4200
+USE_TESTNET=true
+DEBUG=true
+```
+
+Start the server on port 4200 with:
+```
+make build run PORT=4200
+```
 # Testing
+
+Go to https://testnet.binancefuture.com/ and create an account. After creating an account, you can make an API key and API secret
+below the candlestick chart. You will use these in postman and unit tests.
+
+## Postman
+The postman collection is under `postman/collections` and the postman environment is under `postman/environments`. There are example requests for each endpoint.
+
+I suggest having the https://testnet.binancefuture.com/ open in one window to close any positions you open or cancel any orders made while testing the endpoints.
+
+The set up is basically the same as https://github.com/binance/binance-api-postman
+
+## Unit tests
+
+In order to run tests, create an `.env.test` file with:
+```
+FUTURES_API_KEY="XXXXXXX"
+FUTURES_API_SECRET="XXXXXX"
+```
+in the `./libs/binancewrapper`, `./libs/test`, and `./controllers/v1/user` directories.
 
 To run all tests:
 ```
@@ -12,80 +50,193 @@ To run a specific test not cached:
 godotenv -f .env.test go test -count=1 -run TestCreateLimitOrder -v ./libs/binancewrapper
 ```
 
+# Viewing Go Doc of code
+```
+go get -v  golang.org/x/tools/cmd/godoc
+godoc -http:6060
+```
+Then go to http://localhost:6060/pkg/github.com/bosdhill/golang-binance-service/ (its kind of fucked up rn)
+
 # Endpoints
 
-`GET` `/v1/user/account` 
-
-Returns the user's perpetual futures account info.
-
-`GET` `/v1/user/balance`
+## `GET` `/v1/user/balance`
 
 Returns the user's perpetual futures `usdtBalance`.
 
-`POST` `/v1/user/order` 
-
-Creates either a `LIMIT`, `MARKET`, or `STOP_LOSS` order, depending on the order
-type provided. 
-
-Returns a response with the following format:
+Example request body:
 ```
 {
-    "clientOrderId": "testOrder",
-    "cumQty": "0",
-    "cumQuote": "0",
-    "executedQty": "0",
-    "orderId": 22542179,
-    "avgPrice": "0.00000",
-    "origQty": "10",
-    "price": "0",
-    "reduceOnly": false,
-    "side": "BUY",
-    "positionSide": "SHORT",
-    "status": "NEW",
-    "stopPrice": "9300",        // please ignore when order type is TRAILING_STOP_MARKET
-    "closePosition": false,   // if Close-All
-    "symbol": "BTCUSDT",
-    "timeInForce": "GTC",
-    "type": "TRAILING_STOP_MARKET",
-    "origType": "TRAILING_STOP_MARKET",
-    "activatePrice": "9020",    // activation price, only return with TRAILING_STOP_MARKET order
-    "priceRate": "0.3",         // callback rate, only return with TRAILING_STOP_MARKET order
-    "updateTime": 1566818724722,
-    "workingType": "CONTRACT_PRICE",
-    "priceProtect": false            // if conditional order trigger is protected   
+    "api_key": "{{binance-api-key}}",
+    "api_secret": "{{binance-api-secret}}"
 }
 ```
 
-Creates a new futures order for the user in Hedge Mode, from the trading signal format:
+Example response body:
 ```
-SYMBOLUSDTPERP 
-SIDE at ORDER_TYPE
-STOP LOSS: XXXX 
-TAKE PROFIT: [XXXX] 
-SIZE: XXX 
+{
+    "accountAlias": "sRmYFzoCuXFz",
+    "asset": "USDT",
+    "balance": "98076.98393216",
+    "crossWalletBalance": "98076.98393216",
+    "crossUnPnl": "0.00000000",
+    "availableBalance": "98076.98393216",
+    "maxWithdrawAmount": "98076.98393216"
+}
 ```
 
-* `SYMBOL` is the crypto symbol 
+## `GET` `/v1/user/account`
 
-* `SIZE` is the percentage of the user's usdt account balance with maximum leverage. `SIZE` will be used to calculate the usdt `quantity`:
-    ```
-    quantity = SIZE * usdtBalance * leverageMultiplier 
-    ```
-    Assuming that `leverageMultiplier` is 10.
+Returns the user's perpetual futures account info.
 
-* `SIDE` is either `LONG`(buy) or `SHORT`(sell)
+Example request body:
+```
+{
+    "api_key": "{{binance-api-key}}",
+    "api_secret": "{{binance-api-secret}}"
+}
+```
 
-* `ORDER_TYPE` is either `MARKET` or `LIMIT`. This will open a `SIDE` position of size `quantity`. 
+Example response body:
+```
+{
+    "assets": [
+        {
+            "asset": "BNB",
+            "initialMargin": "0.00000000",
+            "maintMargin": "0.00000000",
+            "marginBalance": "0.00000000",
+            "maxWithdrawAmount": "0.00000000",
+            "openOrderInitialMargin": "0.00000000",
+            "positionInitialMargin": "0.00000000",
+            "unrealizedProfit": "0.00000000",
+            "walletBalance": "0.00000000"
+        },
+        {
+            "asset": "USDT",
+            "initialMargin": "0.00000000",
+            "maintMargin": "0.00000000",
+            "marginBalance": "98076.98393216",
+            "maxWithdrawAmount": "98076.98393216",
+            "openOrderInitialMargin": "0.00000000",
+            "positionInitialMargin": "0.00000000",
+            "unrealizedProfit": "0.00000000",
+            "walletBalance": "98076.98393216"
+        },
+        {
+            "asset": "BUSD",
+            "initialMargin": "0.00000000",
+            "maintMargin": "0.00000000",
+            "marginBalance": "0.00000000",
+            "maxWithdrawAmount": "0.00000000",
+            "openOrderInitialMargin": "0.00000000",
+            "positionInitialMargin": "0.00000000",
+            "unrealizedProfit": "0.00000000",
+            "walletBalance": "0.00000000"
+        }
+    ],
+    "canDeposit": true,
+    "canTrade": true,
+    "canWithdraw": true,
+    "feeTier": 0,
+    "maxWithdrawAmount": "98076.98393216",
+    "positions": [
+        {
+            "isolated": false,
+            "leverage": "20",
+            "initialMargin": "0",
+            "maintMargin": "0",
+            "openOrderInitialMargin": "0",
+            "positionInitialMargin": "0",
+            "symbol": "RAYUSDT",
+            "unrealizedProfit": "0.00000000",
+            "entryPrice": "0.0",
+            "maxNotional": "25000",
+            "positionSide": "BOTH",
+            "positionAmt": "0.0",
+            "notional": "0",
+            "isolatedWallet": "0",
+            "updateTime": 0
+        },
+        ...
+        {
+            "isolated": false,
+            "leverage": "20",
+            "initialMargin": "0",
+            "maintMargin": "0",
+            "openOrderInitialMargin": "0",
+            "positionInitialMargin": "0",
+            "symbol": "CTSIUSDT",
+            "unrealizedProfit": "0.00000000",
+            "entryPrice": "0.0",
+            "maxNotional": "25000",
+            "positionSide": "BOTH",
+            "positionAmt": "0",
+            "notional": "0",
+            "isolatedWallet": "0",
+            "updateTime": 0
+        }
+    ],
+    "totalInitialMargin": "0.00000000",
+    "totalMaintMargin": "0.00000000",
+    "totalMarginBalance": "98076.98393216",
+    "totalOpenOrderInitialMargin": "0.00000000",
+    "totalPositionInitialMargin": "0.00000000",
+    "totalUnrealizedProfit": "0.00000000",
+    "totalWalletBalance": "98076.98393216",
+    "updateTime": 0
+}
+```
 
-    * NOTE: there will be a 30 minute time limit for the user to accept a trade for a `MARKET` order. 
+## `POST` `/v1/user/order`
 
-* `STOP LOSS` is the decimal representing the limit at which to completely close the position (size `quantity`)
+Creates either a `LIMIT`, `MARKET`, or `STOP_LOSS` order, depending on the order type provided.
 
-* `TAKE PROFIT` is the list of decimals representing different take profit limit levels (`TP_limits`) sorted in ascending order which are used to partially close the position. The position size of each TP limit level is:
+Example request body:
+```
+{
+    "user": {
+        "api_key": "{{binance-api-key}}",
+        "api_secret": "{{binance-api-secret}}"
+    },
+    "order": {
+        "type": "MARKET",
+        "symbol": "BTCUSDT",
+        "side": "BUY",
+        "percentage": 0.01
+    }
+}
+```
 
-    ```
-    quantity / len(TP_limits)
-    ```
+Example response body:
+
+```
+{
+    "symbol": "BTCUSDT",
+    "orderId": 2869718120,
+    "clientOrderId": "G9Wqjy1RisSjYLDhR4rzYi",
+    "price": "0",
+    "origQty": "0.152",
+    "executedQty": "0",
+    "cumQuote": "0",
+    "reduceOnly": false,
+    "status": "NEW",
+    "stopPrice": "0",
+    "timeInForce": "GTC",
+    "type": "MARKET",
+    "side": "BUY",
+    "updateTime": 1636705431064,
+    "workingType": "CONTRACT_PRICE",
+    "activatePrice": "",
+    "priceRate": "",
+    "avgPrice": "0.00000",
+    "positionSide": "BOTH",
+    "closePosition": false,
+    "priceProtect": false
+}
+```
+
+Examples for `LIMIT` and `STOP_MARKET` are in the postman collection.
+
 ## Issue with Buy limit and Take Profit
 If order is not filled, take profit might be triggered immediately.
 Fill or kill. 

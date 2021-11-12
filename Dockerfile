@@ -7,7 +7,7 @@ RUN CGO_ENABLED=0 go build -ldflags="-extldflags=-static" -o /tmp/server \
 
 FROM scratch
 
-ARG PORT=5000
+ARG PORT=4200
 
 WORKDIR /
 COPY --from=build-stage /tmp/server /server
